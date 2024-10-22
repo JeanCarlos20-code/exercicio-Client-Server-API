@@ -63,7 +63,13 @@ func PriceHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = CreatePrice(r.Context(), db, data)
+	err = CreatePrice(r.Context(), db)
+	if err != nil {
+		log.Printf("Error creating table in database: %v", err)
+		return
+	}
+
+	err = InsertPrice(r.Context(), db, data)
 	if err != nil {
 		log.Printf("Error saving data to the database: %v", err)
 		return
@@ -74,9 +80,9 @@ func PriceHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(data.USDBRL.Bid)
 }
 
-func CreatePrice(ctx context.Context, db *sql.DB, data Price) error {
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Millisecond)
-	defer cancel()
+func InsertPrice(ctx context.Context, db *sql.DB, data Price) error {
+	ctx, cancelInsert := context.WithTimeout(ctx, 10*time.Millisecond)
+	defer cancelInsert()
 
 	_, err := db.ExecContext(ctx, `INSERT INTO Price (code, codein, name, high, low, varBid, pctChange, bid, ask, timestamp, create_date) 
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -84,6 +90,32 @@ func CreatePrice(ctx context.Context, db *sql.DB, data Price) error {
 
 	if err != nil {
 		log.Printf("Error inserting data: %v", err)
+		return err
+	}
+
+	return nil
+}
+
+func CreatePrice(ctx context.Context, db *sql.DB) error {
+	ctx, cancelCreate := context.WithTimeout(ctx, 10*time.Millisecond)
+	defer cancelCreate()
+
+	_, err := db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS Price (
+    	Code        VARCHAR(10),
+    	Codein      VARCHAR(10),
+    	Name        VARCHAR(100),
+    	High        VARCHAR(20),
+    	Low         VARCHAR(20),
+    	VarBid      VARCHAR(20),
+    	PctChange   VARCHAR(10),
+    	Bid         VARCHAR(20),
+    	Ask         VARCHAR(20),
+    	Timestamp   VARCHAR(20),
+    	create_date  VARCHAR(20)
+	);`)
+
+	if err != nil {
+		log.Printf("Error create table: %v", err)
 		return err
 	}
 
